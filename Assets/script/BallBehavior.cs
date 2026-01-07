@@ -34,7 +34,7 @@ public class BallBehavior : MonoBehaviour
     }
     private void OnCollisionEnter2D(Collision2D collision)
     {
-        if (collision.gameObject.CompareTag("ObSquare"))
+        if (collision.gameObject.CompareTag("ObSquare") || collision.gameObject.CompareTag("ObTriangle"))
         {
             Debug.Log("hit");
             Vector2 curV = rb.velocity;
