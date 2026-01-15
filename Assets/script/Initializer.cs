@@ -11,7 +11,7 @@ public class Initializer : MonoBehaviour
     }
     private void Awake()
     {
-        Screen.SetResolution(800, 600, false);
+        Screen.SetResolution(1000, 1400, false);
     }
     // Update is called once per frame
     void Update()

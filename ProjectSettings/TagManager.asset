@@ -6,6 +6,8 @@ TagManager:
   tags:
   - ObSquare
   - ObTriangle
+  - ObjectHex
+  - ObjectPentagon
   layers:
   - Default
   - TransparentFX

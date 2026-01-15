@@ -9,54 +9,106 @@ public class BallBehavior : MonoBehaviour
     [SerializeField] private float Speed = 5.0f; // 初速度大小
     [SerializeField] private float decreaseSpeed = 0.1f; // 碰撞后的减速值
     [SerializeField] private float minimumSpeed = 0.3f; // 最小速度阈值
-    
-    // 新增：防止垂直死循环的最小水平速度
-    [SerializeField] private float minHorizontalSpeed = 0.2f; 
+    [SerializeField] private float minHorizontalSpeed = 0.2f; // 防止垂直死循环的最小水平速度
+    [SerializeField] private float stuckRecoverySpeed = 0.5f; // 卡住时恢复的速度
+
+    [Header("Sliding Prevention")]
+    [SerializeField] private float slidingSpeedThreshold = 0.05f; // 判定为"贴边滑动"的速度阈值
+    [SerializeField] private float slidingPushForce = 5f; // 贴边时推离的力度
+    [SerializeField] private float maxContactTime = 0.5f; // 允许的最大接触时间（秒）
 
     [Header("Initial Direction")]
     [SerializeField] private Vector2 initialDirection = new Vector2(0.5f, 0.3f); // 初速度的方向 (X, Y)
 
     private Rigidbody2D rb;
+    private float contactTimer = 0f; // 记录持续接触时间
+    private bool isInContact = false; // 是否正在接触
+    private Vector2 lastContactNormal; // 最近一次接触的法线方向
 
-    // Start is called before the first frame update
     void Start()
     {
         rb = GetComponent<Rigidbody2D>();
-        // 使用 Inspector 中设置的方向，并进行归一化
         Vector2 ini = initialDirection.normalized; 
         rb.velocity = ini * Speed;
     }
 
-    // Update is called once per frame
+    void FixedUpdate()
+    {
+        // 每帧检测：如果球几乎停止，强制给它一个随机方向的速度
+        if (rb.velocity.magnitude < 0.05f)
+        {
+            Vector2 randomDir = new Vector2(
+                Random.Range(-1f, 1f),
+                Random.Range(-1f, 1f)
+            ).normalized;
+
+            if (randomDir == Vector2.zero)
+            {
+                randomDir = Vector2.right;
+            }
+
+            rb.velocity = randomDir * stuckRecoverySpeed;
+            Debug.Log("Ball was stuck, applying recovery velocity.");
+        }
+
+        // 如果正在接触且速度过低，累加接触时间
+        if (isInContact && rb.velocity.magnitude < slidingSpeedThreshold)
+        {
+            contactTimer += Time.fixedDeltaTime;
+
+            // 如果接触时间超过阈值，说明球在"贴边滑动"
+            if (contactTimer >= maxContactTime)
+            {
+                // 沿法线方向推离
+                rb.velocity += lastContactNormal * slidingPushForce;
+                Debug.Log("Ball was sliding along edge, applying push force.");
+                contactTimer = 0f; // 重置计时器
+            }
+        }
+    }
+
     void Update()
     {
         
     }
+
     private void OnCollisionEnter2D(Collision2D collision)
     {
-        if (collision.gameObject.CompareTag("ObSquare") || collision.gameObject.CompareTag("ObTriangle"))
+        if (collision.gameObject.CompareTag("ObSquare") || collision.gameObject.CompareTag("ObTriangle") || collision.gameObject.CompareTag("ObjectHex"))
         {
             Debug.Log("hit");
             Vector2 curV = rb.velocity;
             if(curV.magnitude > minimumSpeed)
             {
-                // 1. 先计算原本逻辑中的减速后速度
                 Vector2 newV = curV.normalized * (curV.magnitude - decreaseSpeed);
 
-                // 2. 【关键修改】检查 X 轴速度绝对值是否过小
                 if (Mathf.Abs(newV.x) < minHorizontalSpeed)
                 {
-                    // 如果 X 速度太小（比如撞墙后几乎垂直），强制给它一个水平分量
-                    // 如果当前 x 是 0，随机给一个左或右的方向；否则保持原有方向
                     float sign = (newV.x == 0) ? (Random.value > 0.5f ? 1f : -1f) : Mathf.Sign(newV.x);
-                    
-                    // 强制修改 X 轴速度
                     newV.x = sign * minHorizontalSpeed;
                 }
 
                 rb.velocity = newV;
             }
-            
         }
+    }
+
+    // 持续接触时调用
+    private void OnCollisionStay2D(Collision2D collision)
+    {
+        isInContact = true;
+
+        // 获取接触点的法线（垂直于接触面的方向）
+        if (collision.contactCount > 0)
+        {
+            lastContactNormal = collision.GetContact(0).normal;
+        }
+    }
+
+    // 离开接触时调用
+    private void OnCollisionExit2D(Collision2D collision)
+    {
+        isInContact = false;
+        contactTimer = 0f; // 重置计时器
     }
 }
